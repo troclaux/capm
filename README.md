@@ -140,29 +140,101 @@ python tangency_portfolio.py SPY QQQ IWM --lookback 504 --risk-free-rate 0.045 -
 python tangency_portfolio.py -f my_portfolio.txt -v
 ```
 
-## Output
+## Understanding the output
 
-The tool prints four sections:
+The tool prints four sections. Here's what each one means for your actual investment decisions, using a concrete example with $10,000 to invest.
 
-### 1. Tangency Portfolio
-- **Asset weights**: the fraction of capital to allocate to each stock (negative means short, unless `--no-short` is used)
-- **Expected return**: the portfolio's annualized expected return
-- **Volatility**: the portfolio's annualized standard deviation
-- **Sharpe ratio**: (expected return - risk-free rate) / volatility
-- **Verification**: confirms the tangency condition holds (only for unconstrained optimization)
+Suppose you run:
 
-### 2. Asset Betas
-- **Portfolio beta**: each asset's beta relative to the tangency portfolio
-- **Market beta**: each asset's beta relative to the market proxy (if `--market-proxy` is provided)
+```bash
+python tangency_portfolio.py AAPL MSFT GOOG AMZN JPM --no-short --market-proxy SPY --risk-aversion 15
+```
 
-### 3. Capital Market Line (CML)
-- The CML equation: `E[r] = rf + sharpe * sigma`
+### Section 1: Tangency Portfolio
 
-### 4. CML Allocation (Risk Aversion Tuning)
-- Shows the optimal split between the risk-free asset and the tangency portfolio for different risk aversion levels
-- If `--risk-aversion` is specified, shows that specific level; otherwise shows A=1 (aggressive), A=2 (moderate), A=5 (conservative)
+```
+Asset          Weight
+----------------------
+AAPL          25.34%
+MSFT           0.00%
+GOOG          65.15%
+AMZN           0.00%
+JPM            9.52%
 
-Warnings are printed to stderr, including short position alerts, small sample warnings, and CAPM disclaimers.
+Expected Return:  68.74%
+Volatility:       20.43%
+Sharpe Ratio:     3.1193
+```
+
+This is the core answer: **how to split your money among the risky stocks**. If you invest $10,000 purely in stocks using these weights:
+
+- **AAPL**: $2,534 (25.34%)
+- **MSFT**: $0 (0.00%) — the optimizer says it doesn't improve risk-adjusted returns
+- **GOOG**: $6,515 (65.15%)
+- **AMZN**: $0 (0.00%)
+- **JPM**: $952 (9.52%)
+
+The statistics describe this specific mix:
+
+- **Expected Return (68.74%)**: based on the past year's data, this mix would have returned ~68.74% annualized. This is **not a forecast** — it's what historical data suggests.
+- **Volatility (20.43%)**: the portfolio's annualized standard deviation. Roughly, in any given year, returns could swing ~20% above or below the expected value.
+- **Sharpe Ratio (3.12)**: for every 1% of risk you take, you earn ~3.12% of excess return above the risk-free rate. Higher is better. No other combination of these 5 stocks produces a higher Sharpe ratio.
+
+### Section 2: Asset Betas
+
+```
+Asset       Portfolio Beta      Market Beta (SPY)
+-------------------------------------------------
+AAPL                0.6220                 0.9632
+MSFT                0.1024                 0.8916
+GOOG                1.2436                 1.1752
+AMZN                0.5651                 1.4966
+JPM                 0.3388                 1.0805
+```
+
+Beta measures how sensitive each stock is to portfolio or market movements:
+
+- **Portfolio Beta**: GOOG at 1.24 means if your portfolio goes up 10%, GOOG tends to go up 12.4%. JPM at 0.34 means it barely moves with the portfolio — it acts as a diversifier.
+- **Market Beta (SPY)**: AMZN at 1.50 means it's 50% more volatile than the S&P 500. JPM at 1.08 roughly tracks the market.
+
+This helps you understand **why** the optimizer chose certain weights — it favors stocks that contribute return without adding too much correlated risk.
+
+### Section 3: Capital Market Line (CML)
+
+```
+E[r] = 5.00% + 3.1193 * sigma
+```
+
+This is the equation for the best possible risk-return tradeoff. It means: for every 1% of volatility you accept, you should earn 3.12% above the risk-free rate. This line connects the risk-free asset (0% volatility, 5% return) to the tangency portfolio (20.43% volatility, 68.74% return).
+
+### Section 4: CML Allocation (Risk Aversion Tuning)
+
+```
+    A    Tangency   Risk-Free      E[r]  Volatility
+   15.0     101.8%      -1.8%   69.87%     20.80%
+```
+
+This is the final step: **how much of your total wealth goes into the tangency portfolio vs. a risk-free asset** (like T-bills).
+
+- The tangency weights from Section 1 tell you how to split **within** risky stocks.
+- This section tells you **how much to put in risky stocks at all**.
+
+With risk aversion A=15, the model says ~100% tangency portfolio. For $10,000 that means:
+
+1. CML says **101.8% tangency**, so ~$10,180 in stocks
+2. Within that $10,180, split by Section 1 weights:
+   - AAPL: $10,180 x 25.34% = **$2,580**
+   - GOOG: $10,180 x 65.15% = **$6,632**
+   - JPM: $10,180 x 9.52% = **$969**
+
+If you use a higher risk aversion (e.g., A=50), more money goes to T-bills instead. If you use a lower A (e.g., A=1), the model suggests leveraging — borrowing to invest more than 100% in stocks. Values of w > 100% imply leverage and are unrealistic for most individual investors.
+
+### Warnings (stderr)
+
+Printed separately to stderr, these include:
+- Short position alerts (when `--no-short` is not used)
+- Small sample size warnings (fewer than 60 observations)
+- CAPM disclaimers (Gaussian assumption, regime shifts, borrowing/lending rate differences, maturity mismatch, Fama-French factors, thin trading)
 
 ## Exit codes
 
