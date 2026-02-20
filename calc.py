@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pd
+from scipy.optimize import minimize
 
 
 def compute_returns(prices: pd.DataFrame) -> pd.DataFrame:
@@ -83,3 +84,105 @@ def estimate_parameters(
     expected_returns = returns.mean().values * 252
     cov_matrix = returns.cov().values * 252
     return expected_returns, cov_matrix
+
+
+def compute_tangency_weights_constrained(
+    expected_returns: np.ndarray,
+    cov_matrix: np.ndarray,
+    risk_free_rate: float,
+) -> np.ndarray:
+    """Compute tangency portfolio weights with no-short-selling constraint.
+
+    Uses scipy.optimize.minimize to maximize Sharpe ratio subject to
+    w_i >= 0 and sum(w) == 1.
+    """
+    n = len(expected_returns)
+    if cov_matrix.shape != (n, n):
+        raise ValueError(
+            f"Covariance matrix shape {cov_matrix.shape} does not match "
+            f"{n} assets"
+        )
+
+    def neg_sharpe(w):
+        port_return = w @ expected_returns
+        port_vol = np.sqrt(w @ cov_matrix @ w)
+        if port_vol < 1e-12:
+            return 1e10
+        return -(port_return - risk_free_rate) / port_vol
+
+    constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
+    bounds = [(0.0, 1.0)] * n
+    x0 = np.ones(n) / n
+
+    result = minimize(
+        neg_sharpe, x0, method="SLSQP", bounds=bounds, constraints=constraints
+    )
+    if not result.success:
+        raise ValueError(f"Optimization failed: {result.message}")
+
+    return result.x
+
+
+def compute_betas(
+    cov_matrix: np.ndarray,
+    weights: np.ndarray,
+) -> np.ndarray:
+    """Compute beta of each asset relative to the tangency portfolio.
+
+    beta_i = Cov(r_i, r_p) / Var(r_p)
+    """
+    cov_with_portfolio = cov_matrix @ weights
+    portfolio_variance = weights @ cov_matrix @ weights
+    return cov_with_portfolio / portfolio_variance
+
+
+def compute_market_betas(
+    returns: pd.DataFrame,
+    market_returns: pd.Series,
+) -> np.ndarray:
+    """Compute beta of each asset relative to a market proxy.
+
+    beta_i = Cov(r_i, r_m) / Var(r_m)
+    """
+    market_var = market_returns.var() * 252
+    betas = np.array([
+        (returns[col].cov(market_returns) * 252) / market_var
+        for col in returns.columns
+    ])
+    return betas
+
+
+def compute_cml(
+    risk_free_rate: float,
+    tangency_return: float,
+    tangency_volatility: float,
+) -> dict:
+    """Compute Capital Market Line parameters.
+
+    CML: E[r] = rf + (sharpe) * sigma
+    """
+    sharpe = (tangency_return - risk_free_rate) / tangency_volatility
+    return {"intercept": risk_free_rate, "slope": sharpe}
+
+
+def compute_cml_allocation(
+    risk_aversion: float,
+    risk_free_rate: float,
+    tangency_return: float,
+    tangency_volatility: float,
+) -> dict:
+    """Compute the optimal CML allocation for a given risk aversion level.
+
+    w_tangency = (E[r_T] - rf) / (A * sigma_T^2)
+    """
+    tangency_variance = tangency_volatility ** 2
+    w_tangency = (tangency_return - risk_free_rate) / (risk_aversion * tangency_variance)
+    w_riskfree = 1.0 - w_tangency
+    expected_return = w_riskfree * risk_free_rate + w_tangency * tangency_return
+    volatility = abs(w_tangency) * tangency_volatility
+    return {
+        "w_tangency": w_tangency,
+        "w_riskfree": w_riskfree,
+        "expected_return": expected_return,
+        "volatility": volatility,
+    }
