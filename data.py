@@ -54,3 +54,41 @@ def fetch_prices(tickers: list[str], lookback_days: int = 252) -> pd.DataFrame:
         )
 
     return prices
+
+
+def fetch_risk_free_rate(ticker: str, lookback_days: int = 30) -> float:
+    """Fetch the latest annualized risk-free rate from a yield ticker.
+
+    Yahoo Finance yield tickers (e.g. ^IRX, ^TNX) report yields as
+    percentages (e.g. 4.25 meaning 4.25%). This function returns the
+    rate as a decimal (e.g. 0.0425).
+
+    Args:
+        ticker: Yield ticker symbol (e.g. ^IRX for 13-week T-bill,
+                ^TNX for 10-year Treasury).
+        lookback_days: Days to look back to find the latest quote.
+
+    Returns:
+        The latest annualized yield as a decimal.
+
+    Raises:
+        ValueError: If no data is returned for the ticker.
+    """
+    end = datetime.date.today()
+    start = end - datetime.timedelta(days=lookback_days)
+
+    data = yf.download(ticker, start=str(start), end=str(end), auto_adjust=True)
+
+    if data.empty:
+        raise ValueError(f"No data returned for risk-free proxy: {ticker}")
+
+    latest_yield = data["Close"].dropna().iloc[-1]
+
+    # Yahoo yield tickers report in percentage points (e.g. 4.25 = 4.25%)
+    # Handle both scalar and single-element Series
+    if hasattr(latest_yield, 'item'):
+        rate = latest_yield.item() / 100.0
+    else:
+        rate = float(latest_yield) / 100.0
+
+    return rate

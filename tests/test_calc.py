@@ -9,10 +9,12 @@ from calc import (
     compute_cml,
     compute_cml_allocation,
     compute_market_betas,
+    compute_min_variance_return,
     compute_returns,
     compute_tangency_weights,
     compute_tangency_weights_constrained,
     estimate_parameters,
+    validate_risk_free_rate,
     portfolio_statistics,
     verify_tangency,
 )
@@ -228,3 +230,35 @@ class TestComputeCmlAllocation:
         # CML: E[r] = rf + sharpe * sigma
         expected_return = rf + sharpe * alloc["volatility"]
         assert alloc["expected_return"] == pytest.approx(expected_return)
+
+
+class TestComputeMinVarianceReturn:
+    def test_min_variance_return_within_asset_range(self):
+        """Min-variance return should be between the lowest and highest asset returns."""
+        mu, cov, rf = _sample_data()
+        mv_ret = compute_min_variance_return(mu, cov)
+        assert mv_ret >= mu.min() - 1e-10
+        assert mv_ret <= mu.max() + 1e-10
+
+    def test_two_asset_equal_weights_when_equal_variance(self):
+        """With equal variance and zero correlation, min-var is equal weight."""
+        mu = np.array([0.10, 0.06])
+        cov = np.array([[0.04, 0.0], [0.0, 0.04]])
+        mv_ret = compute_min_variance_return(mu, cov)
+        # Equal weights: 0.5 * 0.10 + 0.5 * 0.06 = 0.08
+        assert mv_ret == pytest.approx(0.08)
+
+
+class TestValidateRiskFreeRate:
+    def test_valid_rf_returns_none(self):
+        """rf well below min-variance return should return None."""
+        mu, cov, rf = _sample_data()
+        result = validate_risk_free_rate(0.01, mu, cov)
+        assert result is None
+
+    def test_high_rf_returns_warning(self):
+        """rf above min-variance return should return a warning string."""
+        mu, cov, rf = _sample_data()
+        result = validate_risk_free_rate(0.50, mu, cov)
+        assert result is not None
+        assert "minimum-variance" in result

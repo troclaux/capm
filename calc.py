@@ -86,6 +86,44 @@ def estimate_parameters(
     return expected_returns, cov_matrix
 
 
+def compute_min_variance_return(
+    expected_returns: np.ndarray,
+    cov_matrix: np.ndarray,
+) -> float:
+    """Compute the expected return of the global minimum-variance portfolio.
+
+    w_mv = Sigma^-1 @ 1 / (1^T @ Sigma^-1 @ 1)
+    E[r_mv] = w_mv^T @ mu
+    """
+    ones = np.ones(len(expected_returns))
+    try:
+        inv_cov = np.linalg.inv(cov_matrix)
+    except np.linalg.LinAlgError:
+        raise ValueError("Covariance matrix is singular and cannot be inverted")
+    raw = inv_cov @ ones
+    w_mv = raw / np.sum(raw)
+    return float(w_mv @ expected_returns)
+
+
+def validate_risk_free_rate(
+    risk_free_rate: float,
+    expected_returns: np.ndarray,
+    cov_matrix: np.ndarray,
+) -> str | None:
+    """Check if rf < min-variance portfolio return.
+
+    Returns a warning string if rf >= E[r_mv], or None if valid.
+    """
+    mv_return = compute_min_variance_return(expected_returns, cov_matrix)
+    if risk_free_rate >= mv_return:
+        return (
+            f"Risk-free rate ({risk_free_rate:.2%}) is >= the minimum-variance "
+            f"portfolio return ({mv_return:.2%}). The tangency portfolio may not "
+            f"exist or may be degenerate. Consider using a lower risk-free rate."
+        )
+    return None
+
+
 def compute_tangency_weights_constrained(
     expected_returns: np.ndarray,
     cov_matrix: np.ndarray,

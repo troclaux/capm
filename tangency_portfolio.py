@@ -15,9 +15,10 @@ from calc import (
     compute_tangency_weights_constrained,
     estimate_parameters,
     portfolio_statistics,
+    validate_risk_free_rate,
     verify_tangency,
 )
-from data import fetch_prices
+from data import fetch_prices, fetch_risk_free_rate
 from display import (
     print_betas,
     print_cml,
@@ -52,8 +53,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--risk-free-rate",
         type=float,
-        default=0.05,
-        help="Annual risk-free rate (default: 0.05)",
+        default=None,
+        help="Annual risk-free rate as a decimal (default: 0.05). Overridden by --rf-proxy if both given.",
+    )
+    parser.add_argument(
+        "--rf-proxy",
+        type=str,
+        help="Fetch risk-free rate from a yield ticker (e.g. ^IRX for 13-week T-bill, ^TNX for 10-year Treasury)",
     )
     parser.add_argument(
         "--no-short",
@@ -100,6 +106,19 @@ def main(argv: list[str] | None = None) -> int:
 
     tickers = [t.upper() for t in tickers]
 
+    # Resolve risk-free rate
+    if args.rf_proxy:
+        try:
+            risk_free_rate = fetch_risk_free_rate(args.rf_proxy.upper())
+            print(f"Fetched risk-free rate from {args.rf_proxy.upper()}: {risk_free_rate:.4%}")
+        except ValueError as e:
+            print(f"Data error: {e}", file=sys.stderr)
+            return 2
+    elif args.risk_free_rate is not None:
+        risk_free_rate = args.risk_free_rate
+    else:
+        risk_free_rate = 0.05
+
     # Build fetch list (tickers + optional market proxy)
     market_proxy = args.market_proxy.upper() if args.market_proxy else None
     fetch_tickers = list(tickers)
@@ -125,30 +144,35 @@ def main(argv: list[str] | None = None) -> int:
         asset_returns = all_returns
 
     # Estimate parameters from asset returns only
-    expected_returns, cov_matrix = estimate_parameters(asset_returns, args.risk_free_rate)
+    expected_returns, cov_matrix = estimate_parameters(asset_returns, risk_free_rate)
+
+    # Validate risk-free rate vs min-variance portfolio
+    rf_warning = validate_risk_free_rate(risk_free_rate, expected_returns, cov_matrix)
+    if rf_warning:
+        print(f"\nWARNING: {rf_warning}", file=sys.stderr)
 
     # Compute tangency weights
     try:
         if args.no_short:
             weights = compute_tangency_weights_constrained(
-                expected_returns, cov_matrix, args.risk_free_rate
+                expected_returns, cov_matrix, risk_free_rate
             )
         else:
             weights = compute_tangency_weights(
-                expected_returns, cov_matrix, args.risk_free_rate
+                expected_returns, cov_matrix, risk_free_rate
             )
     except ValueError as e:
         print(f"Computation error: {e}", file=sys.stderr)
         return 2
 
-    stats = portfolio_statistics(weights, expected_returns, cov_matrix, args.risk_free_rate)
+    stats = portfolio_statistics(weights, expected_returns, cov_matrix, risk_free_rate)
 
     # Verification (only meaningful for unconstrained solution)
     is_valid = None
     ratios = None
     if not args.no_short:
         is_valid, ratios = verify_tangency(
-            weights, expected_returns, cov_matrix, args.risk_free_rate
+            weights, expected_returns, cov_matrix, risk_free_rate
         )
 
     # Betas
@@ -159,7 +183,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # CML
     cml = compute_cml(
-        args.risk_free_rate, stats["expected_return"], stats["volatility"]
+        risk_free_rate, stats["expected_return"], stats["volatility"]
     )
 
     # CML allocations
@@ -169,7 +193,7 @@ def main(argv: list[str] | None = None) -> int:
         risk_aversions = [1.0, 2.0, 5.0]
     allocations = [
         compute_cml_allocation(
-            a, args.risk_free_rate, stats["expected_return"], stats["volatility"]
+            a, risk_free_rate, stats["expected_return"], stats["volatility"]
         )
         for a in risk_aversions
     ]
@@ -178,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.verbose:
         print_verbose(
             prices[tickers], asset_returns, expected_returns, cov_matrix,
-            tickers, args.risk_free_rate,
+            tickers, risk_free_rate,
         )
 
     print_results(tickers, weights, stats, is_valid, ratios)

@@ -193,3 +193,18 @@ def print_warnings(
         "  - Thin trading in smaller stocks can lead to inaccurate covariance estimates.",
         file=sys.stderr,
     )
+    print(
+        "  - The CML assumes you can borrow and lend at the same risk-free rate. "
+        "In practice, borrowing rates are higher, which limits leveraged positions.",
+        file=sys.stderr,
+    )
+    print(
+        "  - Historical excess returns over the risk-free rate are less stable than "
+        "raw market returns. A static risk-free rate may not persist over time.",
+        file=sys.stderr,
+    )
+    print(
+        "  - Ensure the risk-free rate maturity matches your investment horizon "
+        "(e.g., use short-term T-bills for short horizons, longer bonds for longer horizons).",
+        file=sys.stderr,
+    )

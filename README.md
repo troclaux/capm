@@ -102,7 +102,8 @@ python tangency_portfolio.py NVDA --file tickers.txt
 |------|---------|-------------|
 | `--file`, `-f` | | Path to a `.txt` file with one ticker per line |
 | `--lookback` | `252` | Lookback period in calendar days (~1 year) |
-| `--risk-free-rate` | `0.05` | Annual risk-free rate |
+| `--risk-free-rate` | `0.05` | Annual risk-free rate as a decimal |
+| `--rf-proxy` | | Fetch risk-free rate from a yield ticker (e.g. `^IRX` for 13-week T-bill, `^TNX` for 10-year Treasury) |
 | `--no-short` | off | Forbid short positions (constrain all weights >= 0) |
 | `--market-proxy` | | Market benchmark ticker for beta comparison (e.g. `SPY`, `^BVSP`) |
 | `--risk-aversion` | | Risk aversion parameter A for CML allocation (omit to see A=1, 2, 5) |
@@ -125,6 +126,12 @@ python tangency_portfolio.py PETR4.SA VALE3.SA ITUB4.SA --market-proxy ^BVSP
 
 # Specify your risk aversion level
 python tangency_portfolio.py AAPL MSFT GOOG --risk-aversion 3
+
+# Use the 13-week T-bill yield as the risk-free rate (auto-fetched)
+python tangency_portfolio.py AAPL MSFT GOOG --rf-proxy ^IRX
+
+# Use the 10-year Treasury yield for longer-horizon analysis
+python tangency_portfolio.py AAPL MSFT GOOG --rf-proxy ^TNX
 
 # 2-year lookback with custom risk-free rate and no short selling
 python tangency_portfolio.py SPY QQQ IWM --lookback 504 --risk-free-rate 0.045 --no-short
@@ -175,15 +182,37 @@ pytest tests/test_calc.py -v
 pytest tests/ -v
 ```
 
+## Risk-free rate
+
+The risk-free rate ($r_f$) is a critical input. You can provide it in three ways:
+
+1. **Manual input**: `--risk-free-rate 0.045` (annualized, as a decimal)
+2. **Auto-fetch from a yield ticker**: `--rf-proxy ^IRX` fetches the latest yield from Yahoo Finance
+3. **Default**: 5% if neither flag is provided
+
+Common yield ticker proxies:
+
+| Ticker | Description | Typical use |
+|--------|-------------|-------------|
+| `^IRX` | 13-week US T-bill | Short-term / academic standard |
+| `^FVX` | 5-year US Treasury | Medium-term horizon |
+| `^TNX` | 10-year US Treasury | Long-term horizon |
+
+The program validates that $r_f$ is below the minimum-variance portfolio return. If it isn't, the tangency portfolio may not exist, and a warning is displayed.
+
+**Important**: match the rate's maturity to your investment horizon. A 13-week T-bill rate is appropriate for short-term analysis; for multi-year horizons, use a longer-duration bond yield.
+
 ## How it works
 
-1. Fetch daily closing prices from Yahoo Finance for the requested lookback period
-2. Compute daily simple returns from prices
-3. Estimate the annualized mean return vector and covariance matrix (daily values x 252)
-4. Compute the tangency portfolio weights: $w = \Sigma^{-1}(\mu - r_f) / \mathbf{1}^T \Sigma^{-1}(\mu - r_f)$, or use scipy constrained optimization if `--no-short`
-5. Verify the result: the ratio $(\mu_i - r_f) / \text{Cov}(r_i, r_p)$ must be identical for all assets
-6. Compute per-asset betas (and market betas if a proxy is provided)
-7. Compute the Capital Market Line and risk-aversion-based allocations
+1. Resolve the risk-free rate (manual, auto-fetched from `--rf-proxy`, or default 0.05)
+2. Fetch daily closing prices from Yahoo Finance for the requested lookback period
+3. Compute daily simple returns from prices
+4. Estimate the annualized mean return vector and covariance matrix (daily values x 252)
+5. Validate that $r_f$ < minimum-variance portfolio return (warn if not)
+6. Compute the tangency portfolio weights: $w = \Sigma^{-1}(\mu - r_f) / \mathbf{1}^T \Sigma^{-1}(\mu - r_f)$, or use scipy constrained optimization if `--no-short`
+7. Verify the result: the ratio $(\mu_i - r_f) / \text{Cov}(r_i, r_p)$ must be identical for all assets
+8. Compute per-asset betas (and market betas if a proxy is provided)
+9. Compute the Capital Market Line and risk-aversion-based allocations
 
 ## CAPM Limitations
 
@@ -195,3 +224,5 @@ The CAPM makes strong assumptions that don't perfectly hold in real markets:
 - **Value effect**: high book-to-market stocks tend to outperform (Fama-French)
 - **Momentum**: recent winners tend to keep winning in the short term
 - **Thin trading**: illiquid or thinly traded stocks produce unreliable covariance estimates
+- **Borrowing vs. lending**: the CML assumes you can borrow and lend at the same rate; in reality, borrowing rates are higher, which limits leveraged positions
+- **Risk-free rate stability**: historical excess returns over $r_f$ are less stable than raw market returns; a static rate may not persist
