@@ -120,6 +120,7 @@ python tangency_portfolio.py NVDA --file tickers.txt
 | `--market-proxy` | `^BVSP` | Market benchmark ticker for beta comparison (default: Ibovespa) |
 | `--risk-aversion` | | Risk aversion parameter A for CML allocation (omit to see A=1, 2, 5) |
 | `--verbose`, `-v` | off | Print intermediate values (prices, returns, covariance matrix) |
+| `--plot` | off | Show mean-variance diagram (efficient frontier, CML, tangency portfolio). Optionally pass a filename to save instead of displaying (e.g. `--plot chart.png`) |
 
 ## Examples
 
@@ -147,6 +148,12 @@ python tangency_portfolio.py SPY QQQ IWM --lookback 504 --risk-free-rate 0.045 -
 
 # Read tickers from a file with verbose output
 python tangency_portfolio.py -f my_portfolio.txt -v
+
+# Show the mean-variance diagram interactively
+python tangency_portfolio.py AAPL MSFT GOOG --plot
+
+# Save the diagram to a file instead of displaying it
+python tangency_portfolio.py AAPL MSFT GOOG --plot tangency.png
 ```
 
 ## Understanding the output
@@ -247,6 +254,22 @@ With risk aversion A=15, the model says ~100% tangency portfolio. For $10,000 th
    - JPM: $10,180 x 9.52% = **$969**
 
 If you use a higher risk aversion (e.g., A=50), more money goes to T-bills instead. If you use a lower A (e.g., A=1), the model suggests leveraging — borrowing to invest more than 100% in stocks. Values of w > 100% imply leverage and are unrealistic for most individual investors.
+
+### Mean-variance diagram (`--plot`)
+
+When you pass `--plot`, the tool generates the classic **mean-standard deviation diagram** from Modern Portfolio Theory:
+
+- **Feasible set**: the shaded region of all achievable risk-return combinations from the risky assets
+- **Efficient frontier**: the upper boundary of the feasible set — portfolios offering the highest return for each level of risk
+- **Minimum variance portfolio (V)**: the leftmost point on the frontier, marked with a green diamond
+- **Risk-free rate ($r_f$)**: plotted on the Y-axis at zero standard deviation
+- **Capital Market Line (CML)**: the straight line from $r_f$ tangent to the efficient frontier. The solid segment (lending) shows mixes of the risk-free asset and the tangency portfolio; the dashed segment (leverage) shows borrowing at $r_f$ to invest more than 100% in the tangency portfolio
+- **Tangency portfolio (T)**: the star marker where the CML touches the efficient frontier, annotated with its expected return and volatility
+- **Individual assets**: gray dots labeled with their ticker symbols — assets below the CML are dominated
+
+The slope of the CML equals the Sharpe ratio of the tangency portfolio, displayed in the top-left corner. No feasible portfolio can exist above (north-west of) the CML.
+
+Use `--plot` alone to open an interactive window, or `--plot filename.png` to save to a file.
 
 ### Warnings (stderr)
 
