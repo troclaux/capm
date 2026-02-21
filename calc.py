@@ -69,20 +69,23 @@ def verify_tangency(
 
 
 def estimate_parameters(
-    returns: pd.DataFrame, annual_rf: float
+    returns: pd.DataFrame,
+    annual_rf: float,
+    periods_per_year: int = 12,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Estimate annualized expected returns and covariance matrix from daily returns.
+    """Estimate annualized expected returns and covariance matrix from periodic returns.
 
     Args:
-        returns: DataFrame of daily simple returns.
-        annual_rf: Annual risk-free rate (used to shift mean returns:
-                   annualized_mean = daily_mean * 252).
+        returns: DataFrame of periodic simple returns (monthly or daily).
+        annual_rf: Annual risk-free rate.
+        periods_per_year: Number of return observations per year
+                          (12 for monthly, 252 for daily).
 
     Returns:
         Tuple of (expected_returns, cov_matrix), both annualized.
     """
-    expected_returns = returns.mean().values * 252
-    cov_matrix = returns.cov().values * 252
+    expected_returns = returns.mean().values * periods_per_year
+    cov_matrix = returns.cov().values * periods_per_year
     return expected_returns, cov_matrix
 
 
@@ -177,14 +180,15 @@ def compute_betas(
 def compute_market_betas(
     returns: pd.DataFrame,
     market_returns: pd.Series,
+    periods_per_year: int = 12,
 ) -> np.ndarray:
     """Compute beta of each asset relative to a market proxy.
 
     beta_i = Cov(r_i, r_m) / Var(r_m)
     """
-    market_var = market_returns.var() * 252
+    market_var = market_returns.var() * periods_per_year
     betas = np.array([
-        (returns[col].cov(market_returns) * 252) / market_var
+        (returns[col].cov(market_returns) * periods_per_year) / market_var
         for col in returns.columns
     ])
     return betas

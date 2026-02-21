@@ -57,10 +57,19 @@ class TestComputeReturns:
 
 
 class TestEstimateParameters:
-    def test_annualizes_correctly(self):
-        """Mean and covariance should be multiplied by 252."""
+    def test_annualizes_monthly_by_default(self):
+        """Mean and covariance should be multiplied by 12 (monthly default)."""
         returns = pd.DataFrame({"A": [0.01, 0.02, 0.03], "B": [0.02, 0.01, 0.03]})
         mu, cov = estimate_parameters(returns, annual_rf=0.05)
+        expected_mu = returns.mean().values * 12
+        expected_cov = returns.cov().values * 12
+        np.testing.assert_allclose(mu, expected_mu)
+        np.testing.assert_allclose(cov, expected_cov)
+
+    def test_annualizes_daily(self):
+        """When periods_per_year=252, mean and covariance should be multiplied by 252."""
+        returns = pd.DataFrame({"A": [0.01, 0.02, 0.03], "B": [0.02, 0.01, 0.03]})
+        mu, cov = estimate_parameters(returns, annual_rf=0.05, periods_per_year=252)
         expected_mu = returns.mean().values * 252
         expected_cov = returns.cov().values * 252
         np.testing.assert_allclose(mu, expected_mu)

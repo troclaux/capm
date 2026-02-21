@@ -13,27 +13,30 @@ def print_verbose(
     cov_matrix: np.ndarray,
     tickers: list[str],
     annual_rf: float,
+    periods_per_year: int = 12,
 ) -> None:
     """Print intermediate values for cross-checking."""
-    daily_rf = annual_rf / 252
+    periodic_rf = annual_rf / periods_per_year
+    freq_label = "monthly" if periods_per_year == 12 else "daily"
 
     print("\n" + "=" * 60)
     print("VERBOSE: Intermediate Values")
     print("=" * 60)
 
-    print(f"\nRisk-free rate (annual): {annual_rf:.4f} ({annual_rf * 100:.2f}%)")
-    print(f"Risk-free rate (daily):  {daily_rf:.6f} ({daily_rf * 100:.4f}%)")
+    print(f"\nFrequency: {freq_label} ({periods_per_year} periods/year)")
+    print(f"Risk-free rate (annual):    {annual_rf:.4f} ({annual_rf * 100:.2f}%)")
+    print(f"Risk-free rate ({freq_label}): {periodic_rf:.6f} ({periodic_rf * 100:.4f}%)")
 
     print(f"\nClosing prices (last 5 of {len(prices)} rows):")
     print(prices.tail().to_string())
 
-    print(f"\nDaily returns (last 5 of {len(returns)} rows):")
+    print(f"\n{freq_label.capitalize()} returns (last 5 of {len(returns)} rows):")
     print(returns.tail().to_string())
 
     print("\nAnnualized expected returns:")
     for i, ticker in enumerate(tickers):
-        daily_mean = returns[ticker].mean()
-        print(f"  {ticker:<10} daily: {daily_mean:.6f}  annualized: {expected_returns[i]:.4f}")
+        periodic_mean = returns[ticker].mean()
+        print(f"  {ticker:<10} {freq_label}: {periodic_mean:.6f}  annualized: {expected_returns[i]:.4f}")
 
     print("\nAnnualized covariance matrix:")
     cov_df = pd.DataFrame(cov_matrix, index=tickers, columns=tickers)

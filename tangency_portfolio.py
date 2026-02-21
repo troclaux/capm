@@ -48,9 +48,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--lookback",
-        type=int,
-        default=252,
-        help="Lookback period in calendar days (default: 252, ~1 year)",
+        type=float,
+        default=1.0,
+        help="Lookback period in years (default: 1)",
+    )
+    parser.add_argument(
+        "--frequency",
+        choices=["monthly", "daily"],
+        default="monthly",
+        help="Return frequency (default: monthly)",
     )
     parser.add_argument(
         "--risk-free-rate",
@@ -136,9 +142,13 @@ def main(argv: list[str] | None = None) -> int:
     if market_proxy and market_proxy not in fetch_tickers:
         fetch_tickers.append(market_proxy)
 
+    # Resolve frequency
+    interval = "1mo" if args.frequency == "monthly" else "1d"
+    periods_per_year = 12 if args.frequency == "monthly" else 252
+
     # Fetch data
     try:
-        prices = fetch_prices(fetch_tickers, lookback_days=args.lookback)
+        prices = fetch_prices(fetch_tickers, lookback_years=args.lookback, interval=interval)
     except ValueError as e:
         print(f"Data error: {e}", file=sys.stderr)
         return 2
@@ -155,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
         asset_returns = all_returns
 
     # Estimate parameters from asset returns only
-    expected_returns, cov_matrix = estimate_parameters(asset_returns, risk_free_rate)
+    expected_returns, cov_matrix = estimate_parameters(asset_returns, risk_free_rate, periods_per_year)
 
     # Validate risk-free rate vs min-variance portfolio
     rf_warning = validate_risk_free_rate(risk_free_rate, expected_returns, cov_matrix)
@@ -191,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
     market_betas = None
     adjusted_betas = None
     if market_returns is not None:
-        market_betas = compute_market_betas(asset_returns, market_returns)
+        market_betas = compute_market_betas(asset_returns, market_returns, periods_per_year)
         adjusted_betas = compute_bloomberg_adjusted_betas(market_betas)
 
     # CML
@@ -215,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.verbose:
         print_verbose(
             prices[tickers], asset_returns, expected_returns, cov_matrix,
-            tickers, risk_free_rate,
+            tickers, risk_free_rate, periods_per_year,
         )
 
     print_results(tickers, weights, stats, is_valid, ratios)

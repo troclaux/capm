@@ -6,12 +6,17 @@ import pandas as pd
 import yfinance as yf
 
 
-def fetch_prices(tickers: list[str], lookback_days: int = 252) -> pd.DataFrame:
+def fetch_prices(
+    tickers: list[str],
+    lookback_years: float = 1.0,
+    interval: str = "1mo",
+) -> pd.DataFrame:
     """Fetch adjusted closing prices from Yahoo Finance.
 
     Args:
         tickers: List of ticker symbols.
-        lookback_days: Number of calendar days to look back.
+        lookback_years: Number of years to look back.
+        interval: Data frequency ("1mo" for monthly, "1d" for daily).
 
     Returns:
         DataFrame with tickers as columns and dates as index.
@@ -20,9 +25,9 @@ def fetch_prices(tickers: list[str], lookback_days: int = 252) -> pd.DataFrame:
         ValueError: If any ticker returns no data or insufficient data.
     """
     end = datetime.date.today()
-    start = end - datetime.timedelta(days=lookback_days)
+    start = end - datetime.timedelta(days=int(lookback_years * 365))
 
-    data = yf.download(tickers, start=str(start), end=str(end), auto_adjust=True)
+    data = yf.download(tickers, start=str(start), end=str(end), interval=interval, auto_adjust=True)
 
     if data.empty:
         raise ValueError(f"No data returned for tickers: {tickers}")

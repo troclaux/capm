@@ -113,7 +113,8 @@ python tangency_portfolio.py NVDA --file tickers.txt
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--file`, `-f` | | Path to a `.txt` file with one ticker per line |
-| `--lookback` | `252` | Lookback period in calendar days (~1 year) |
+| `--lookback` | `1` | Lookback period in years (e.g. `0.5` for 6 months, `2` for 2 years) |
+| `--frequency` | `monthly` | Return frequency: `monthly` or `daily` |
 | `--risk-free-rate` | `0.05` | Annual risk-free rate as a decimal |
 | `--rf-proxy` | | Fetch risk-free rate from a yield ticker (e.g. `^IRX` for 13-week T-bill, `^TNX` for 10-year Treasury) |
 | `--no-short` | off | Forbid short positions (constrain all weights >= 0) |
@@ -144,7 +145,13 @@ python tangency_portfolio.py AAPL MSFT GOOG --rf-proxy ^IRX
 python tangency_portfolio.py AAPL MSFT GOOG --rf-proxy ^TNX
 
 # 2-year lookback with custom risk-free rate and no short selling
-python tangency_portfolio.py SPY QQQ IWM --lookback 504 --risk-free-rate 0.045 --no-short
+python tangency_portfolio.py SPY QQQ IWM --lookback 2 --risk-free-rate 0.045 --no-short
+
+# Use daily returns instead of monthly
+python tangency_portfolio.py AAPL MSFT GOOG --frequency daily
+
+# 5-year lookback with daily returns
+python tangency_portfolio.py AAPL MSFT GOOG --lookback 5 --frequency daily
 
 # Read tickers from a file with verbose output
 python tangency_portfolio.py -f my_portfolio.txt -v
@@ -319,9 +326,9 @@ The program validates that $r_f$ is below the minimum-variance portfolio return.
 ## How it works
 
 1. Resolve the risk-free rate (manual, auto-fetched from `--rf-proxy`, or default 0.05)
-2. Fetch daily closing prices from Yahoo Finance for the requested lookback period
-3. Compute daily simple returns from prices
-4. Estimate the annualized mean return vector and covariance matrix (daily values x 252)
+2. Fetch closing prices from Yahoo Finance for the requested lookback period and frequency (monthly by default, or daily with `--frequency daily`)
+3. Compute simple returns from prices
+4. Estimate the annualized mean return vector and covariance matrix (periodic values x periods per year: 12 for monthly, 252 for daily)
 5. Validate that $r_f$ < minimum-variance portfolio return (warn if not)
 6. Compute the tangency portfolio weights: $w = \Sigma^{-1}(\mu - r_f) / \mathbf{1}^T \Sigma^{-1}(\mu - r_f)$, or use scipy constrained optimization if `--no-short`
 7. Verify the result: the ratio $(\mu_i - r_f) / \text{Cov}(r_i, r_p)$ must be identical for all assets
