@@ -215,6 +215,53 @@ def compute_bloomberg_adjusted_betas(
     return weight * unadjusted_betas + (1.0 - weight)
 
 
+def compute_efficient_frontier(
+    expected_returns: np.ndarray,
+    cov_matrix: np.ndarray,
+    n_points: int = 200,
+    allow_short: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute the efficient frontier (and full minimum-variance boundary).
+
+    Returns arrays of (volatilities, returns) tracing the full hyperbola
+    boundary of the feasible set.
+    """
+    n = len(expected_returns)
+
+    def min_variance_for_target(target_return):
+        def objective(w):
+            return w @ cov_matrix @ w
+
+        constraints = [
+            {"type": "eq", "fun": lambda w: np.sum(w) - 1.0},
+            {"type": "eq", "fun": lambda w: w @ expected_returns - target_return},
+        ]
+        bounds = None if allow_short else [(0.0, 1.0)] * n
+        x0 = np.ones(n) / n
+        result = minimize(
+            objective, x0, method="SLSQP", bounds=bounds, constraints=constraints,
+        )
+        if result.success:
+            vol = np.sqrt(result.fun)
+            return vol
+        return None
+
+    mu_min = expected_returns.min()
+    mu_max = expected_returns.max()
+    margin = (mu_max - mu_min) * 0.5
+    target_returns = np.linspace(mu_min - margin, mu_max + margin, n_points)
+
+    vols = []
+    rets = []
+    for target in target_returns:
+        vol = min_variance_for_target(target)
+        if vol is not None:
+            vols.append(vol)
+            rets.append(target)
+
+    return np.array(vols), np.array(rets)
+
+
 def compute_cml(
     risk_free_rate: float,
     tangency_return: float,

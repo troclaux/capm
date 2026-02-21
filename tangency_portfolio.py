@@ -10,6 +10,7 @@ from calc import (
     compute_bloomberg_adjusted_betas,
     compute_cml,
     compute_cml_allocation,
+    compute_efficient_frontier,
     compute_market_betas,
     compute_returns,
     compute_tangency_weights,
@@ -82,6 +83,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--verbose", "-v",
         action="store_true",
         help="Print intermediate values (prices, returns, covariance) for cross-checking",
+    )
+    parser.add_argument(
+        "--plot",
+        nargs="?",
+        const="show",
+        default=None,
+        metavar="FILE",
+        help="Show mean-variance diagram. Optionally save to FILE (e.g. plot.png)",
     )
     return parser.parse_args(argv)
 
@@ -214,6 +223,28 @@ def main(argv: list[str] | None = None) -> int:
     print_cml(cml)
     print_cml_allocations(allocations, risk_aversions)
     print_warnings(tickers, weights, num_observations=len(asset_returns))
+
+    # Plot
+    if args.plot is not None:
+        from plot import plot_tangency_portfolio
+
+        frontier_vols, frontier_rets = compute_efficient_frontier(
+            expected_returns, cov_matrix, allow_short=not args.no_short,
+        )
+        asset_vols = np.sqrt(np.diag(cov_matrix))
+        output_file = None if args.plot == "show" else args.plot
+        plot_tangency_portfolio(
+            frontier_vols=frontier_vols,
+            frontier_rets=frontier_rets,
+            tangency_vol=stats["volatility"],
+            tangency_ret=stats["expected_return"],
+            risk_free_rate=risk_free_rate,
+            sharpe_ratio=cml["slope"],
+            asset_vols=asset_vols,
+            asset_rets=expected_returns,
+            tickers=tickers,
+            output_file=output_file,
+        )
 
     return 0
 
