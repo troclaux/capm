@@ -41,6 +41,18 @@ $$\beta_i = \frac{\text{Cov}(r_i, r_p)}{\text{Var}(r_p)}$$
 
 A beta greater than 1 means the asset amplifies portfolio moves; less than 1 means it dampens them. If a market proxy is provided (e.g., SPY), the tool also reports each asset's market beta.
 
+### Bloomberg Beta Adjustment
+
+When a market proxy is provided, the tool automatically applies the **Bloomberg adjustment** (page 145, Result 5.8) to shrink raw market betas toward 1.0:
+
+$$\text{Adjusted Beta} = 0.66 \times \text{Unadjusted Beta} + 0.34$$
+
+This adjustment accounts for two empirical facts:
+1. **Estimation error**: regression betas from historical data are noisy, and extreme estimates tend to overstate the true beta.
+2. **Mean reversion**: over time, betas tend to regress toward the market mean of 1.0.
+
+The formula lowers betas above 1 and raises betas below 1. For example, an unadjusted beta of 1.64 becomes an adjusted beta of 1.42. Both values are displayed side by side in the output for transparency.
+
 ## Installation
 
 ```bash
@@ -105,7 +117,7 @@ python tangency_portfolio.py NVDA --file tickers.txt
 | `--risk-free-rate` | `0.05` | Annual risk-free rate as a decimal |
 | `--rf-proxy` | | Fetch risk-free rate from a yield ticker (e.g. `^IRX` for 13-week T-bill, `^TNX` for 10-year Treasury) |
 | `--no-short` | off | Forbid short positions (constrain all weights >= 0) |
-| `--market-proxy` | | Market benchmark ticker for beta comparison (e.g. `SPY`, `^BVSP`) |
+| `--market-proxy` | `^BVSP` | Market benchmark ticker for beta comparison (default: Ibovespa) |
 | `--risk-aversion` | | Risk aversion parameter A for CML allocation (omit to see A=1, 2, 5) |
 | `--verbose`, `-v` | off | Print intermediate values (prices, returns, covariance matrix) |
 
@@ -118,11 +130,8 @@ python tangency_portfolio.py AAPL MSFT GOOG AMZN
 # Forbid short selling
 python tangency_portfolio.py AAPL MSFT GOOG --no-short
 
-# Compare against S&P 500 (shows market betas)
+# Use S&P 500 instead of the default Ibovespa
 python tangency_portfolio.py AAPL MSFT GOOG --market-proxy SPY
-
-# Brazilian stocks with Ibovespa as benchmark
-python tangency_portfolio.py PETR4.SA VALE3.SA ITUB4.SA --market-proxy ^BVSP
 
 # Specify your risk aversion level
 python tangency_portfolio.py AAPL MSFT GOOG --risk-aversion 3
@@ -148,6 +157,12 @@ Suppose you run:
 
 ```bash
 python tangency_portfolio.py AAPL MSFT GOOG AMZN JPM --no-short --market-proxy SPY --risk-aversion 15
+```
+
+By default, the market proxy is `^BVSP` (Ibovespa). For US stocks, override with `--market-proxy SPY`:
+
+```bash
+python tangency_portfolio.py AAPL MSFT GOOG AMZN JPM --market-proxy SPY
 ```
 
 ### Section 1: Tangency Portfolio
@@ -183,19 +198,23 @@ The statistics describe this specific mix:
 ### Section 2: Asset Betas
 
 ```
-Asset       Portfolio Beta      Market Beta (SPY)
--------------------------------------------------
-AAPL                0.6220                 0.9632
-MSFT                0.1024                 0.8916
-GOOG                1.2436                 1.1752
-AMZN                0.5651                 1.4966
-JPM                 0.3388                 1.0805
+Asset       Portf. Beta   Mkt Beta   BBG Adj.
+--------------------------------------------
+AAPL            0.6220     0.9632     0.9757
+MSFT            0.1024     0.8916     0.9285
+GOOG            1.2436     1.1752     1.1156
+AMZN            0.5651     1.4966     1.3278
+JPM             0.3388     1.0805     1.0531
+--------------------------------------------
+  Market proxy: SPY
+  BBG Adj. = 0.66 * Mkt Beta + 0.34 (Bloomberg shrinkage toward 1.0)
 ```
 
 Beta measures how sensitive each stock is to portfolio or market movements:
 
-- **Portfolio Beta**: GOOG at 1.24 means if your portfolio goes up 10%, GOOG tends to go up 12.4%. JPM at 0.34 means it barely moves with the portfolio — it acts as a diversifier.
-- **Market Beta (SPY)**: AMZN at 1.50 means it's 50% more volatile than the S&P 500. JPM at 1.08 roughly tracks the market.
+- **Portf. Beta**: GOOG at 1.24 means if your portfolio goes up 10%, GOOG tends to go up 12.4%. JPM at 0.34 means it barely moves with the portfolio — it acts as a diversifier.
+- **Mkt Beta**: AMZN at 1.50 means it's 50% more volatile than the S&P 500. JPM at 1.08 roughly tracks the market.
+- **BBG Adj.**: The Bloomberg-adjusted beta shrinks each market beta toward 1.0. AMZN's raw 1.50 becomes 1.33 after adjustment, while MSFT's 0.89 becomes 0.93. This corrects for estimation error and the empirical tendency of extreme betas to revert to the mean over time.
 
 This helps you understand **why** the optimizer chose certain weights — it favors stocks that contribute return without adding too much correlated risk.
 

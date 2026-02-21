@@ -77,6 +77,7 @@ def print_betas(
     tickers: list[str],
     portfolio_betas: np.ndarray,
     market_betas: np.ndarray | None = None,
+    adjusted_betas: np.ndarray | None = None,
     market_proxy: str | None = None,
 ) -> None:
     """Print per-asset beta table."""
@@ -84,7 +85,21 @@ def print_betas(
     print("Asset Betas")
     print("=" * 60)
 
-    if market_betas is not None:
+    if market_betas is not None and adjusted_betas is not None:
+        print(
+            f"\n{'Asset':<10} {'Portf. Beta':>12} "
+            f"{'Mkt Beta':>10} {'BBG Adj.':>10}"
+        )
+        print("-" * 44)
+        for i, ticker in enumerate(tickers):
+            print(
+                f"{ticker:<10} {portfolio_betas[i]:>12.4f} "
+                f"{market_betas[i]:>10.4f} {adjusted_betas[i]:>10.4f}"
+            )
+        print("-" * 44)
+        print(f"  Market proxy: {market_proxy}")
+        print("  BBG Adj. = 0.66 * Mkt Beta + 0.34 (Bloomberg shrinkage toward 1.0)")
+    elif market_betas is not None:
         print(f"\n{'Asset':<10} {'Portfolio Beta':>15} {f'Market Beta ({market_proxy})':>22}")
         print("-" * 49)
         for i, ticker in enumerate(tickers):

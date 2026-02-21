@@ -7,6 +7,7 @@ import numpy as np
 
 from calc import (
     compute_betas,
+    compute_bloomberg_adjusted_betas,
     compute_cml,
     compute_cml_allocation,
     compute_market_betas,
@@ -69,7 +70,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--market-proxy",
         type=str,
-        help="Market benchmark ticker for beta calculation (e.g. SPY, ^BVSP)",
+        default="^BVSP",
+        help="Market benchmark ticker for beta calculation (default: ^BVSP / Ibovespa)",
     )
     parser.add_argument(
         "--risk-aversion",
@@ -178,8 +180,10 @@ def main(argv: list[str] | None = None) -> int:
     # Betas
     portfolio_betas = compute_betas(cov_matrix, weights)
     market_betas = None
+    adjusted_betas = None
     if market_returns is not None:
         market_betas = compute_market_betas(asset_returns, market_returns)
+        adjusted_betas = compute_bloomberg_adjusted_betas(market_betas)
 
     # CML
     cml = compute_cml(
@@ -206,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     print_results(tickers, weights, stats, is_valid, ratios)
-    print_betas(tickers, portfolio_betas, market_betas, market_proxy)
+    print_betas(tickers, portfolio_betas, market_betas, adjusted_betas, market_proxy)
     print_cml(cml)
     print_cml_allocations(allocations, risk_aversions)
     print_warnings(tickers, weights, num_observations=len(asset_returns))

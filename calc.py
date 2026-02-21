@@ -190,6 +190,31 @@ def compute_market_betas(
     return betas
 
 
+def compute_bloomberg_adjusted_betas(
+    unadjusted_betas: np.ndarray,
+    weight: float = 0.66,
+) -> np.ndarray:
+    """Apply the Bloomberg beta adjustment (shrinkage toward 1.0).
+
+    Adjusted Beta = weight * Unadjusted Beta + (1 - weight)
+
+    This adjustment accounts for estimation error and the empirical tendency
+    of extreme betas to revert toward the market mean of 1.0 over time
+    (Result 5.8). It lowers betas above 1 and raises betas below 1.
+
+    The standard Bloomberg weights are 0.66 / 0.34:
+        Adjusted Beta = 0.66 * Unadjusted Beta + 0.34
+
+    Args:
+        unadjusted_betas: Array of raw regression betas.
+        weight: Weight on the unadjusted beta (default: 0.66).
+
+    Returns:
+        Array of Bloomberg-adjusted betas.
+    """
+    return weight * unadjusted_betas + (1.0 - weight)
+
+
 def compute_cml(
     risk_free_rate: float,
     tangency_return: float,

@@ -6,6 +6,7 @@ import pytest
 
 from calc import (
     compute_betas,
+    compute_bloomberg_adjusted_betas,
     compute_cml,
     compute_cml_allocation,
     compute_market_betas,
@@ -262,3 +263,48 @@ class TestValidateRiskFreeRate:
         result = validate_risk_free_rate(0.50, mu, cov)
         assert result is not None
         assert "minimum-variance" in result
+
+
+class TestComputeBloombergAdjustedBetas:
+    def test_textbook_example(self):
+        """Page 145 example: unadjusted beta of 1.64 -> adjusted beta of 1.42."""
+        unadjusted = np.array([1.64])
+        adjusted = compute_bloomberg_adjusted_betas(unadjusted)
+        # 0.66 * 1.64 + 0.34 = 1.0824 + 0.34 = 1.4224
+        assert adjusted[0] == pytest.approx(1.4224)
+        # Rounded to two decimals matches the book's 1.42
+        assert round(adjusted[0], 2) == 1.42
+
+    def test_shrinks_high_beta_toward_one(self):
+        """Betas above 1 should be lowered."""
+        unadjusted = np.array([1.5])
+        adjusted = compute_bloomberg_adjusted_betas(unadjusted)
+        assert adjusted[0] < 1.5
+        assert adjusted[0] > 1.0
+
+    def test_raises_low_beta_toward_one(self):
+        """Betas below 1 should be increased."""
+        unadjusted = np.array([0.5])
+        adjusted = compute_bloomberg_adjusted_betas(unadjusted)
+        assert adjusted[0] > 0.5
+        assert adjusted[0] < 1.0
+
+    def test_beta_of_one_unchanged(self):
+        """A beta of exactly 1.0 should remain 1.0."""
+        unadjusted = np.array([1.0])
+        adjusted = compute_bloomberg_adjusted_betas(unadjusted)
+        assert adjusted[0] == pytest.approx(1.0)
+
+    def test_multiple_assets(self):
+        """Should work element-wise on an array."""
+        unadjusted = np.array([1.64, 0.50, 1.00, 2.00])
+        adjusted = compute_bloomberg_adjusted_betas(unadjusted)
+        expected = 0.66 * unadjusted + 0.34
+        np.testing.assert_allclose(adjusted, expected)
+
+    def test_custom_weight(self):
+        """Should accept a custom shrinkage weight."""
+        unadjusted = np.array([1.5])
+        adjusted = compute_bloomberg_adjusted_betas(unadjusted, weight=0.5)
+        # 0.5 * 1.5 + 0.5 = 1.25
+        assert adjusted[0] == pytest.approx(1.25)
