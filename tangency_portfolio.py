@@ -25,6 +25,7 @@ from display import (
     print_betas,
     print_cml,
     print_cml_allocations,
+    print_correlation_matrix,
     print_results,
     print_verbose,
     print_warnings,
@@ -89,6 +90,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--verbose", "-v",
         action="store_true",
         help="Print intermediate values (prices, returns, covariance) for cross-checking",
+    )
+    parser.add_argument(
+        "--correlation",
+        action="store_true",
+        help="Print the Pearson correlation matrix of asset returns",
     )
     parser.add_argument(
         "--plot",
@@ -229,6 +235,8 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     print_results(tickers, weights, stats, is_valid, ratios)
+    if args.correlation:
+        print_correlation_matrix(tickers, asset_returns)
     print_betas(tickers, portfolio_betas, market_betas, adjusted_betas, market_proxy)
     print_cml(cml)
     print_cml_allocations(allocations, risk_aversions)

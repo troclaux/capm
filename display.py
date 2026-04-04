@@ -159,6 +159,20 @@ def print_cml_allocations(
     print("=" * 60 + "\n")
 
 
+def print_correlation_matrix(
+    tickers: list[str],
+    returns: "pd.DataFrame",
+) -> None:
+    """Print the Pearson correlation matrix of asset returns."""
+    corr = returns[tickers].corr(method="pearson")
+    print("=" * 60)
+    print("Pearson Correlation Matrix")
+    print("=" * 60)
+    print()
+    print(corr.to_string(float_format=lambda x: f"{x:+.4f}"))
+    print("=" * 60 + "\n")
+
+
 def print_warnings(
     tickers: list[str],
     weights: np.ndarray,
