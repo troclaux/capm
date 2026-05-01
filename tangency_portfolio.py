@@ -20,12 +20,13 @@ from calc import (
     validate_risk_free_rate,
     verify_tangency,
 )
-from data import fetch_prices, fetch_risk_free_rate
+from data import fetch_prices, fetch_risk_free_rate, parse_portfolio_file
 from display import (
     print_betas,
     print_cml,
     print_cml_allocations,
     print_correlation_matrix,
+    print_custom_portfolio,
     print_results,
     print_verbose,
     print_warnings,
@@ -103,6 +104,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         metavar="FILE",
         help="Show mean-variance diagram. Optionally save to FILE (e.g. plot.png)",
+    )
+    parser.add_argument(
+        "--portfolio",
+        type=str,
+        metavar="FILE",
+        help=(
+            "Path to a portfolio file (one 'TICKER WEIGHT' per line). "
+            "Computes its expected return and volatility, and plots it on "
+            "the mean-variance diagram. Tickers must match the analyzed set."
+        ),
     )
     return parser.parse_args(argv)
 
@@ -210,6 +221,19 @@ def main(argv: list[str] | None = None) -> int:
         market_betas = compute_market_betas(asset_returns, market_returns, periods_per_year)
         adjusted_betas = compute_bloomberg_adjusted_betas(market_betas)
 
+    # Custom user portfolio (optional)
+    custom_weights = None
+    custom_stats = None
+    if args.portfolio:
+        try:
+            custom_weights = parse_portfolio_file(args.portfolio, tickers)
+        except (FileNotFoundError, ValueError) as e:
+            print(f"Portfolio error: {e}", file=sys.stderr)
+            return 1
+        custom_stats = portfolio_statistics(
+            custom_weights, expected_returns, cov_matrix, risk_free_rate
+        )
+
     # CML
     cml = compute_cml(
         risk_free_rate, stats["expected_return"], stats["volatility"]
@@ -240,6 +264,11 @@ def main(argv: list[str] | None = None) -> int:
     print_betas(tickers, portfolio_betas, market_betas, adjusted_betas, market_proxy)
     print_cml(cml)
     print_cml_allocations(allocations, risk_aversions)
+    if custom_weights is not None and custom_stats is not None:
+        print_custom_portfolio(
+            tickers, custom_weights, custom_stats,
+            risk_free_rate, stats["sharpe_ratio"],
+        )
     print_warnings(tickers, weights, num_observations=len(asset_returns))
 
     # Plot
@@ -251,6 +280,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         asset_vols = np.sqrt(np.diag(cov_matrix))
         output_file = None if args.plot == "show" else args.plot
+        custom_vol = custom_stats["volatility"] if custom_stats else None
+        custom_ret = custom_stats["expected_return"] if custom_stats else None
         plot_tangency_portfolio(
             frontier_vols=frontier_vols,
             frontier_rets=frontier_rets,
@@ -262,6 +293,8 @@ def main(argv: list[str] | None = None) -> int:
             asset_rets=expected_returns,
             tickers=tickers,
             output_file=output_file,
+            custom_vol=custom_vol,
+            custom_ret=custom_ret,
         )
 
     return 0

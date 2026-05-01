@@ -16,6 +16,9 @@ def plot_tangency_portfolio(
     asset_rets: np.ndarray,
     tickers: list[str],
     output_file: str | None = None,
+    custom_vol: float | None = None,
+    custom_ret: float | None = None,
+    custom_label: str = "P (your portfolio)",
 ) -> None:
     """Draw the mean-standard deviation diagram with tangency portfolio.
 
@@ -32,7 +35,10 @@ def plot_tangency_portfolio(
     sorted_rets = frontier_rets[sort_idx]
 
     # Fill feasible region: from frontier curve to the right
-    max_vol = max(sorted_vols.max(), asset_vols.max()) * 1.3
+    extent_vols = [sorted_vols.max(), asset_vols.max()]
+    if custom_vol is not None:
+        extent_vols.append(custom_vol)
+    max_vol = max(extent_vols) * 1.3
     ax.fill_betweenx(
         sorted_rets, sorted_vols, max_vol,
         alpha=0.08, color="steelblue", label="Feasible set",
@@ -113,6 +119,21 @@ def plot_tangency_portfolio(
         fontsize=9, color="darkorange", fontweight="bold",
         bbox=dict(boxstyle="round,pad=0.3", facecolor="lightyellow", alpha=0.8),
     )
+
+    # --- Custom user portfolio ---
+    if custom_vol is not None and custom_ret is not None:
+        ax.plot(
+            custom_vol, custom_ret,
+            marker="s", color="purple", markersize=11, zorder=6,
+            markeredgecolor="black", markeredgewidth=0.5,
+        )
+        ax.annotate(
+            f"{custom_label}\n$\\mu$={custom_ret:.2%}, $\\sigma$={custom_vol:.2%}",
+            (custom_vol, custom_ret),
+            textcoords="offset points", xytext=(14, -22),
+            fontsize=9, color="purple", fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="lavender", alpha=0.8),
+        )
 
     # --- Individual assets ---
     for i, ticker in enumerate(tickers):

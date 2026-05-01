@@ -122,6 +122,7 @@ python tangency_portfolio.py NVDA --file tickers.txt
 | `--risk-aversion` | | Risk aversion parameter A for CML allocation (omit to see A=1, 2, 5) |
 | `--verbose`, `-v` | off | Print intermediate values (prices, returns, covariance matrix) |
 | `--plot` | off | Show mean-variance diagram (efficient frontier, CML, tangency portfolio). Optionally pass a filename to save instead of displaying (e.g. `--plot chart.png`) |
+| `--portfolio` | | Path to a portfolio weights file (see [Positioning a custom portfolio](#positioning-a-custom-portfolio-on-the-diagram)). Computes the portfolio's expected return and volatility, prints them, and plots it as a labeled point on the mean-variance diagram. |
 
 ## Examples
 
@@ -161,7 +162,45 @@ python tangency_portfolio.py AAPL MSFT GOOG --plot
 
 # Save the diagram to a file instead of displaying it
 python tangency_portfolio.py AAPL MSFT GOOG --plot tangency.png
+
+# Position your own portfolio on the diagram
+python tangency_portfolio.py -f stocks.txt --portfolio my_weights.txt --plot
 ```
+
+## Positioning a custom portfolio on the diagram
+
+If you want to see where *your own* portfolio sits relative to the efficient frontier and the tangency point, pass `--portfolio FILE`. The tool computes the portfolio's expected return $E[r_p] = w^T \mu$ and volatility $\sigma_p = \sqrt{w^T \Sigma w}$ from the same estimated $\mu$ and $\Sigma$ used for the tangency calculation, prints those statistics alongside its Sharpe ratio, and plots the portfolio as a purple square on the mean-variance diagram.
+
+### File format
+
+One ticker / weight pair per line, separated by whitespace. Lines starting with `#` are comments; blank lines are ignored. Weights are decimals (e.g. `0.25` for 25%), and **the tickers must match exactly the set being analyzed** — same tickers, no extras and none missing. Order doesn't matter; the tool reorders weights internally to align with the analyzed tickers.
+
+```
+# my_weights.txt — equal-weighted across 5 stocks
+AAPL  0.20
+MSFT  0.20
+GOOG  0.20
+AMZN  0.20
+JPM   0.20
+```
+
+Run it with the same set of tickers used for analysis:
+
+```bash
+python tangency_portfolio.py AAPL MSFT GOOG AMZN JPM --portfolio my_weights.txt --plot
+```
+
+The terminal output adds a "Custom Portfolio" section with the weights, $E[r_p]$, $\sigma_p$, and the gap between your Sharpe ratio and the tangency portfolio's Sharpe ratio (so you can quantify how far from optimal your allocation is). On the diagram, your portfolio appears as a purple square labeled with its $\mu$ and $\sigma$.
+
+If your weights don't sum to 1, the tool still computes and plots the result but prints a note — fully-invested mean-variance statistics assume the weights sum to 100%.
+
+### Validation errors
+
+The tool refuses to run (exit code 1) if the file:
+
+- references a ticker not in the analyzed set (`unknown: [...]`)
+- omits a ticker that's in the analyzed set (`missing: [...]`)
+- has malformed lines, non-numeric weights, or duplicate tickers
 
 ## Understanding the output
 
@@ -273,6 +312,7 @@ When you pass `--plot`, the tool generates the classic **mean-standard deviation
 - **Capital Market Line (CML)**: the straight line from $r_f$ tangent to the efficient frontier. The solid segment (lending) shows mixes of the risk-free asset and the tangency portfolio; the dashed segment (leverage) shows borrowing at $r_f$ to invest more than 100% in the tangency portfolio
 - **Tangency portfolio (T)**: the star marker where the CML touches the efficient frontier, annotated with its expected return and volatility
 - **Individual assets**: gray dots labeled with their ticker symbols — assets below the CML are dominated
+- **Custom portfolio (P)**: a purple square, only shown when `--portfolio` is passed (see [Positioning a custom portfolio](#positioning-a-custom-portfolio-on-the-diagram))
 
 The slope of the CML equals the Sharpe ratio of the tangency portfolio, displayed in the top-left corner. No feasible portfolio can exist above (north-west of) the CML.
 

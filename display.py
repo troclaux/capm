@@ -159,6 +159,43 @@ def print_cml_allocations(
     print("=" * 60 + "\n")
 
 
+def print_custom_portfolio(
+    tickers: list[str],
+    weights: np.ndarray,
+    stats: dict,
+    risk_free_rate: float,
+    tangency_sharpe: float,
+) -> None:
+    """Print the user-specified portfolio's weights and statistics."""
+    total = float(np.sum(weights))
+    print("=" * 60)
+    print("Custom Portfolio")
+    print("=" * 60)
+
+    print(f"\n{'Asset':<10} {'Weight':>10}")
+    print("-" * 22)
+    for ticker, w in zip(tickers, weights):
+        print(f"{ticker:<10} {w:>9.2%}")
+    print("-" * 22)
+    print(f"{'Total':<10} {total:>9.2%}")
+
+    print(f"\nExpected Return: {stats['expected_return']:>7.2%}")
+    print(f"Volatility:      {stats['volatility']:>7.2%}")
+    print(f"Sharpe Ratio:    {stats['sharpe_ratio']:>7.4f}")
+
+    sharpe_gap = tangency_sharpe - stats["sharpe_ratio"]
+    print(
+        f"\n  Tangency Sharpe: {tangency_sharpe:.4f}  "
+        f"(gap: {sharpe_gap:+.4f})"
+    )
+    if abs(total - 1.0) > 1e-6:
+        print(
+            f"\n  NOTE: weights sum to {total:.4%}, not 100%. "
+            f"Mean-variance statistics assume full investment in risky assets."
+        )
+    print("=" * 60 + "\n")
+
+
 def print_correlation_matrix(
     tickers: list[str],
     returns: "pd.DataFrame",

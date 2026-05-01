@@ -2,6 +2,7 @@
 
 import datetime
 
+import numpy as np
 import pandas as pd
 import yfinance as yf
 
@@ -97,3 +98,52 @@ def fetch_risk_free_rate(ticker: str, lookback_days: int = 30) -> float:
         rate = float(latest_yield) / 100.0
 
     return rate
+
+
+def parse_portfolio_file(path: str, expected_tickers: list[str]) -> np.ndarray:
+    """Parse a portfolio file and return weights ordered to match expected_tickers.
+
+    Format: one 'TICKER WEIGHT' pair per line, whitespace-separated. Lines
+    starting with '#' are comments; blank lines are ignored. Tickers in the
+    file must match expected_tickers exactly (same set).
+
+    Raises:
+        ValueError: on malformed lines, duplicate tickers, or ticker mismatch.
+    """
+    weights_dict: dict[str, float] = {}
+    with open(path) as fh:
+        for lineno, line in enumerate(fh, 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            parts = stripped.split()
+            if len(parts) != 2:
+                raise ValueError(
+                    f"{path}:{lineno}: expected 'TICKER WEIGHT', got {stripped!r}"
+                )
+            ticker = parts[0].upper()
+            try:
+                weight = float(parts[1])
+            except ValueError:
+                raise ValueError(
+                    f"{path}:{lineno}: invalid weight {parts[1]!r} for {ticker}"
+                )
+            if ticker in weights_dict:
+                raise ValueError(f"{path}:{lineno}: duplicate ticker {ticker}")
+            weights_dict[ticker] = weight
+
+    expected_set = set(expected_tickers)
+    given_set = set(weights_dict.keys())
+    if given_set != expected_set:
+        missing = sorted(expected_set - given_set)
+        extra = sorted(given_set - expected_set)
+        msgs = []
+        if missing:
+            msgs.append(f"missing: {missing}")
+        if extra:
+            msgs.append(f"unknown: {extra}")
+        raise ValueError(
+            f"portfolio file tickers must match analyzed tickers — {'; '.join(msgs)}"
+        )
+
+    return np.array([weights_dict[t] for t in expected_tickers])
