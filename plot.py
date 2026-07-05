@@ -1,8 +1,50 @@
 """Tangency portfolio mean-variance diagram."""
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch
+
+
+def plot_correlation_heatmap(
+    corr: "pd.DataFrame",
+    output_file: str,
+) -> None:
+    """Save a color-coded PNG heatmap of a correlation matrix.
+
+    Cells are annotated with their correlation value and colored on a
+    diverging scale (-1 red, 0 white, +1 blue). The file is written to
+    disk; the plot is never shown interactively.
+    """
+    tickers = list(corr.columns)
+    n = len(tickers)
+    values = corr.values
+
+    fig, ax = plt.subplots(figsize=(max(6, n * 0.9), max(5, n * 0.8)))
+
+    im = ax.imshow(values, cmap="RdBu", vmin=-1.0, vmax=1.0)
+
+    ax.set_xticks(range(n), labels=tickers, rotation=45, ha="right")
+    ax.set_yticks(range(n), labels=tickers)
+
+    # Annotate each cell; pick text color for contrast against the fill
+    for i in range(n):
+        for j in range(n):
+            v = values[i, j]
+            ax.text(
+                j, i, f"{v:+.2f}",
+                ha="center", va="center",
+                color="white" if abs(v) > 0.55 else "black",
+                fontsize=9,
+            )
+
+    ax.set_title("Pearson Correlation Matrix", fontsize=13)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    plt.tight_layout()
+    fig.savefig(output_file, dpi=150, bbox_inches="tight")
+    print(f"Correlation heatmap saved to {output_file}")
+    plt.close(fig)
 
 
 def plot_tangency_portfolio(

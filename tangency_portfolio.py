@@ -261,6 +261,11 @@ def main(argv: list[str] | None = None) -> int:
     print_results(tickers, weights, stats, is_valid, ratios)
     if args.correlation:
         print_correlation_matrix(tickers, asset_returns)
+        from plot import plot_correlation_heatmap
+
+        plot_correlation_heatmap(
+            asset_returns[tickers].corr(method="pearson"), "correlation.png"
+        )
     print_betas(tickers, portfolio_betas, market_betas, adjusted_betas, market_proxy)
     print_cml(cml)
     print_cml_allocations(allocations, risk_aversions)
