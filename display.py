@@ -1,9 +1,33 @@
 """Formatted output and warnings."""
 
+import shutil
+import subprocess
 import sys
 
 import numpy as np
 import pandas as pd
+
+
+def copy_to_clipboard(text: str) -> bool:
+    """Best-effort copy of text to the system clipboard.
+
+    Tries the common platform clipboard tools in order. Returns True on
+    success, False if no usable tool is found (never raises).
+    """
+    candidates = [
+        ["wl-copy"],
+        ["xclip", "-selection", "clipboard"],
+        ["xsel", "--clipboard", "--input"],
+        ["pbcopy"],
+    ]
+    for cmd in candidates:
+        if shutil.which(cmd[0]):
+            try:
+                subprocess.run(cmd, input=text.encode(), check=True)
+                return True
+            except (subprocess.SubprocessError, OSError):
+                continue
+    return False
 
 
 def print_verbose(

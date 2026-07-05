@@ -2,8 +2,10 @@
 
 import argparse
 import glob
+import io
 import os
 import sys
+from contextlib import redirect_stdout
 
 import numpy as np
 
@@ -24,6 +26,7 @@ from calc import (
 )
 from data import fetch_prices, fetch_risk_free_rate, parse_portfolio_file
 from display import (
+    copy_to_clipboard,
     print_betas,
     print_cml,
     print_cml_allocations,
@@ -34,6 +37,21 @@ from display import (
     print_verbose,
     print_warnings,
 )
+
+
+class _Tee:
+    """Write to several streams at once (e.g. stdout and a capture buffer)."""
+
+    def __init__(self, *streams):
+        self._streams = streams
+
+    def write(self, data):
+        for s in self._streams:
+            s.write(data)
+
+    def flush(self):
+        for s in self._streams:
+            s.flush()
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -266,37 +284,44 @@ def main(argv: list[str] | None = None) -> int:
             tickers, risk_free_rate, periods_per_year,
         )
 
-    print_results(tickers, weights, stats, is_valid, ratios)
-    if args.correlation or args.print_correlation:
-        if args.print_correlation:
-            print_correlation_matrix(tickers, asset_returns)
-        from plot import plot_correlation_heatmap
+    # Tee stdout so the analysis text is both shown and captured for the clipboard
+    captured = io.StringIO()
+    tee = _Tee(sys.stdout, captured)
+    with redirect_stdout(tee):
+        print_results(tickers, weights, stats, is_valid, ratios)
+        if args.correlation or args.print_correlation:
+            if args.print_correlation:
+                print_correlation_matrix(tickers, asset_returns)
+            from plot import plot_correlation_heatmap
 
-        start = asset_returns.index[0].date()
-        end = asset_returns.index[-1].date()
-        # Keep only the latest heatmap: drop any previous correlation_* files
-        for old in glob.glob("correlation_*.png"):
-            os.remove(old)
-        plot_correlation_heatmap(
-            asset_returns[tickers].corr(method="pearson"),
-            f"correlation_{start}_{end}.png",
+            start = asset_returns.index[0].date()
+            end = asset_returns.index[-1].date()
+            # Keep only the latest heatmap: drop any previous correlation_* files
+            for old in glob.glob("correlation_*.png"):
+                os.remove(old)
+            plot_correlation_heatmap(
+                asset_returns[tickers].corr(method="pearson"),
+                f"correlation_{start}_{end}.png",
+            )
+        print_betas(tickers, portfolio_betas, market_betas, adjusted_betas, market_proxy)
+        print_cml(cml)
+        print_cml_allocations(allocations, risk_aversions)
+        if custom_weights is not None and custom_stats is not None:
+            print_custom_portfolio(
+                tickers, custom_weights, custom_stats,
+                risk_free_rate, stats["sharpe_ratio"],
+            )
+        print_data_summary(
+            str(asset_returns.index[0].date()),
+            str(asset_returns.index[-1].date()),
+            risk_free_rate,
+            args.frequency,
         )
-    print_betas(tickers, portfolio_betas, market_betas, adjusted_betas, market_proxy)
-    print_cml(cml)
-    print_cml_allocations(allocations, risk_aversions)
-    if custom_weights is not None and custom_stats is not None:
-        print_custom_portfolio(
-            tickers, custom_weights, custom_stats,
-            risk_free_rate, stats["sharpe_ratio"],
-        )
+
+    if not copy_to_clipboard(captured.getvalue()):
+        print("(no clipboard tool found; output not copied)", file=sys.stderr)
+
     print_warnings(tickers, weights, num_observations=len(asset_returns))
-
-    print_data_summary(
-        str(asset_returns.index[0].date()),
-        str(asset_returns.index[-1].date()),
-        risk_free_rate,
-        args.frequency,
-    )
 
     # Plot
     if args.plot is not None:
