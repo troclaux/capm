@@ -25,7 +25,10 @@ def fetch_prices(
     Raises:
         ValueError: If any ticker returns no data or insufficient data.
     """
-    end = datetime.date.today()
+    # Anchor the window to the last market day of the previous month.
+    # yfinance's `end` is exclusive, so the first of the current month makes
+    # the last included row the last trading day of the previous month.
+    end = datetime.date.today().replace(day=1)
     start = end - datetime.timedelta(days=int(lookback_years * 365))
 
     data = yf.download(tickers, start=str(start), end=str(end), interval=interval, auto_adjust=True)
@@ -80,7 +83,8 @@ def fetch_risk_free_rate(ticker: str, lookback_days: int = 30) -> float:
     Raises:
         ValueError: If no data is returned for the ticker.
     """
-    end = datetime.date.today()
+    # Anchor to the last market day of the previous month (end is exclusive).
+    end = datetime.date.today().replace(day=1)
     start = end - datetime.timedelta(days=lookback_days)
 
     data = yf.download(ticker, start=str(start), end=str(end), auto_adjust=True)
