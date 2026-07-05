@@ -32,7 +32,7 @@ def plot_correlation_heatmap(
         for j in range(n):
             v = values[i, j]
             ax.text(
-                j, i, f"{v:+.2f}",
+                j, i, f"{v:+.4f}",
                 ha="center", va="center",
                 color="white" if abs(v) > 0.55 else "black",
                 fontsize=9,

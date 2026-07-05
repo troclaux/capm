@@ -122,7 +122,8 @@ python tangency_portfolio.py NVDA --file tickers.txt
 | `--risk-aversion` | | Risk aversion parameter A for CML allocation (omit to see A=1, 2, 5) |
 | `--verbose`, `-v` | off | Print intermediate values (prices, returns, covariance matrix) |
 | `--plot` | off | Save the mean-variance diagram (efficient frontier, CML, tangency portfolio) as a PNG to `tangency.png`; pass a filename to override (e.g. `--plot chart.png`). Always saved to disk, never opened |
-| `--correlation` | off | Print the Pearson correlation matrix of asset returns and save it as a color-coded PNG heatmap named for the data interval used (e.g. `correlation_2025-08-01_2026-06-01.png`) |
+| `--correlation` | off | Save the Pearson correlation matrix of asset returns as a color-coded PNG heatmap named for the data interval used (e.g. `correlation_2025-08-01_2026-06-01.png`) |
+| `--print-correlation` | off | Also print the Pearson correlation matrix to stdout (implies `--correlation`) |
 | `--portfolio` | | Path to a portfolio weights file (see [Positioning a custom portfolio](#positioning-a-custom-portfolio-on-the-diagram)). Computes the portfolio's expected return and volatility, prints them, and plots it as a labeled point on the mean-variance diagram. |
 
 ## Examples

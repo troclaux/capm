@@ -28,6 +28,7 @@ from display import (
     print_cml,
     print_cml_allocations,
     print_correlation_matrix,
+    print_data_summary,
     print_custom_portfolio,
     print_results,
     print_verbose,
@@ -97,7 +98,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--correlation",
         action="store_true",
-        help="Print the Pearson correlation matrix of asset returns",
+        help="Save the Pearson correlation matrix of asset returns as a PNG heatmap",
+    )
+    parser.add_argument(
+        "--print-correlation",
+        action="store_true",
+        help="Also print the Pearson correlation matrix to stdout (implies --correlation)",
     )
     parser.add_argument(
         "--plot",
@@ -261,8 +267,9 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     print_results(tickers, weights, stats, is_valid, ratios)
-    if args.correlation:
-        print_correlation_matrix(tickers, asset_returns)
+    if args.correlation or args.print_correlation:
+        if args.print_correlation:
+            print_correlation_matrix(tickers, asset_returns)
         from plot import plot_correlation_heatmap
 
         start = asset_returns.index[0].date()
@@ -283,6 +290,13 @@ def main(argv: list[str] | None = None) -> int:
             risk_free_rate, stats["sharpe_ratio"],
         )
     print_warnings(tickers, weights, num_observations=len(asset_returns))
+
+    print_data_summary(
+        str(asset_returns.index[0].date()),
+        str(asset_returns.index[-1].date()),
+        risk_free_rate,
+        args.frequency,
+    )
 
     # Plot
     if args.plot is not None:

@@ -116,6 +116,22 @@ def print_betas(
     print("=" * 60 + "\n")
 
 
+def print_data_summary(
+    start: str,
+    end: str,
+    risk_free_rate: float,
+    frequency: str,
+) -> None:
+    """Print the data interval, risk-free rate, and return frequency used."""
+    print("=" * 60)
+    print("Data Summary")
+    print("=" * 60)
+    print(f"\n  Data interval:    {start} to {end}")
+    print(f"  Risk-free rate:   {risk_free_rate:.2%}")
+    print(f"  Frequency:        {frequency}")
+    print("=" * 60 + "\n")
+
+
 def print_cml(cml: dict) -> None:
     """Print the Capital Market Line equation."""
     print("=" * 60)
