@@ -1,6 +1,8 @@
 """CLI entry point for tangency portfolio calculator."""
 
 import argparse
+import glob
+import os
 import sys
 
 import numpy as np
@@ -100,10 +102,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--plot",
         nargs="?",
-        const="show",
+        const="tangency.png",
         default=None,
         metavar="FILE",
-        help="Show mean-variance diagram. Optionally save to FILE (e.g. plot.png)",
+        help="Save the mean-variance diagram as a PNG (defaults to tangency.png; pass a filename to override). Always saved to disk, never opened",
     )
     parser.add_argument(
         "--portfolio",
@@ -263,8 +265,14 @@ def main(argv: list[str] | None = None) -> int:
         print_correlation_matrix(tickers, asset_returns)
         from plot import plot_correlation_heatmap
 
+        start = asset_returns.index[0].date()
+        end = asset_returns.index[-1].date()
+        # Keep only the latest heatmap: drop any previous correlation_* files
+        for old in glob.glob("correlation_*.png"):
+            os.remove(old)
         plot_correlation_heatmap(
-            asset_returns[tickers].corr(method="pearson"), "correlation.png"
+            asset_returns[tickers].corr(method="pearson"),
+            f"correlation_{start}_{end}.png",
         )
     print_betas(tickers, portfolio_betas, market_betas, adjusted_betas, market_proxy)
     print_cml(cml)
@@ -284,7 +292,7 @@ def main(argv: list[str] | None = None) -> int:
             expected_returns, cov_matrix, allow_short=not args.no_short,
         )
         asset_vols = np.sqrt(np.diag(cov_matrix))
-        output_file = None if args.plot == "show" else args.plot
+        output_file = args.plot
         custom_vol = custom_stats["volatility"] if custom_stats else None
         custom_ret = custom_stats["expected_return"] if custom_stats else None
         plot_tangency_portfolio(

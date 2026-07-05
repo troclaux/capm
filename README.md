@@ -121,8 +121,8 @@ python tangency_portfolio.py NVDA --file tickers.txt
 | `--market-proxy` | `^BVSP` | Market benchmark ticker for beta comparison (default: Ibovespa) |
 | `--risk-aversion` | | Risk aversion parameter A for CML allocation (omit to see A=1, 2, 5) |
 | `--verbose`, `-v` | off | Print intermediate values (prices, returns, covariance matrix) |
-| `--plot` | off | Show mean-variance diagram (efficient frontier, CML, tangency portfolio). Optionally pass a filename to save instead of displaying (e.g. `--plot chart.png`) |
-| `--correlation` | off | Print the Pearson correlation matrix of asset returns and save it as a color-coded PNG heatmap to `correlation.png` |
+| `--plot` | off | Save the mean-variance diagram (efficient frontier, CML, tangency portfolio) as a PNG to `tangency.png`; pass a filename to override (e.g. `--plot chart.png`). Always saved to disk, never opened |
+| `--correlation` | off | Print the Pearson correlation matrix of asset returns and save it as a color-coded PNG heatmap named for the data interval used (e.g. `correlation_2025-08-01_2026-06-01.png`) |
 | `--portfolio` | | Path to a portfolio weights file (see [Positioning a custom portfolio](#positioning-a-custom-portfolio-on-the-diagram)). Computes the portfolio's expected return and volatility, prints them, and plots it as a labeled point on the mean-variance diagram. |
 
 ## Examples
@@ -317,7 +317,7 @@ When you pass `--plot`, the tool generates the classic **mean-standard deviation
 
 The slope of the CML equals the Sharpe ratio of the tangency portfolio, displayed in the top-left corner. No feasible portfolio can exist above (north-west of) the CML.
 
-Use `--plot` alone to open an interactive window, or `--plot filename.png` to save to a file.
+Use `--plot` alone to save to `tangency.png`, or `--plot filename.png` to choose the filename. The image is always written to disk (overwriting any existing file of the same name) and never opened, so it won't interrupt the text output.
 
 ### Warnings (stderr)
 
