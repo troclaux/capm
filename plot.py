@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch
+from adjustText import adjust_text
 
 
 def plot_correlation_heatmap(
@@ -67,7 +68,7 @@ def plot_tangency_portfolio(
     Shows: feasible set, efficient frontier, minimum variance portfolio,
     risk-free rate, CML, tangency point, and individual assets.
     """
-    fig, ax = plt.subplots(figsize=(10, 7))
+    fig, ax = plt.subplots(figsize=(13, 7))
 
     # --- Feasible set (shaded region) ---
     # The frontier traces the boundary; fill the area to the right
@@ -76,11 +77,21 @@ def plot_tangency_portfolio(
     sorted_vols = frontier_vols[sort_idx]
     sorted_rets = frontier_rets[sort_idx]
 
-    # Fill feasible region: from frontier curve to the right
-    extent_vols = [sorted_vols.max(), asset_vols.max()]
-    if custom_vol is not None:
+    # Axis extent: stop just past the outermost plotted point
+    extent_vols = [sorted_vols.max(), asset_vols.max(), tangency_vol]
+    extent_rets = [
+        sorted_rets.max(), sorted_rets.min(), asset_rets.max(), asset_rets.min(),
+        tangency_ret, risk_free_rate,
+    ]
+    if custom_vol is not None and custom_ret is not None:
         extent_vols.append(custom_vol)
-    max_vol = max(extent_vols) * 1.3
+        extent_rets.append(custom_ret)
+    max_vol = max(extent_vols) * 1.05
+    ret_span = max(extent_rets) - min(extent_rets)
+    y_min = min(extent_rets) - 0.05 * ret_span
+    y_max = max(extent_rets) + 0.05 * ret_span
+
+    # Fill feasible region: from frontier curve to the right
     ax.fill_betweenx(
         sorted_rets, sorted_vols, max_vol,
         alpha=0.08, color="steelblue", label="Feasible set",
@@ -108,23 +119,15 @@ def plot_tangency_portfolio(
     # --- Minimum variance portfolio (V) ---
     ax.plot(
         min_var_vol, min_var_ret,
-        marker="D", color="darkgreen", markersize=9, zorder=5,
-    )
-    ax.annotate(
-        "V (min variance)", (min_var_vol, min_var_ret),
-        textcoords="offset points", xytext=(12, -5),
-        fontsize=9, color="darkgreen", fontweight="bold",
+        marker="D", color="darkgreen", markersize=9, zorder=5, linestyle="none",
+        label=f"V (min variance)  $\\mu$={min_var_ret:.2%}, $\\sigma$={min_var_vol:.2%}",
     )
 
     # --- Risk-free rate on Y-axis ---
     ax.plot(
         0, risk_free_rate,
-        marker="o", color="red", markersize=8, zorder=5,
-    )
-    ax.annotate(
-        f"$r_f$ = {risk_free_rate:.2%}", (0, risk_free_rate),
-        textcoords="offset points", xytext=(8, -12),
-        fontsize=9, color="red", fontweight="bold",
+        marker="o", color="red", markersize=8, zorder=5, linestyle="none",
+        label=f"$r_f$ = {risk_free_rate:.2%}",
     )
 
     # --- Capital Market Line (CML) ---
@@ -152,14 +155,8 @@ def plot_tangency_portfolio(
     ax.plot(
         tangency_vol, tangency_ret,
         marker="*", color="darkorange", markersize=16, zorder=6,
-        markeredgecolor="black", markeredgewidth=0.5,
-    )
-    ax.annotate(
-        f"T (tangency)\n$\\mu$={tangency_ret:.2%}, $\\sigma$={tangency_vol:.2%}",
-        (tangency_vol, tangency_ret),
-        textcoords="offset points", xytext=(14, 8),
-        fontsize=9, color="darkorange", fontweight="bold",
-        bbox=dict(boxstyle="round,pad=0.3", facecolor="lightyellow", alpha=0.8),
+        markeredgecolor="black", markeredgewidth=0.5, linestyle="none",
+        label=f"T (tangency)  $\\mu$={tangency_ret:.2%}, $\\sigma$={tangency_vol:.2%}",
     )
 
     # --- Custom user portfolio ---
@@ -167,27 +164,21 @@ def plot_tangency_portfolio(
         ax.plot(
             custom_vol, custom_ret,
             marker="s", color="purple", markersize=11, zorder=6,
-            markeredgecolor="black", markeredgewidth=0.5,
-        )
-        ax.annotate(
-            f"{custom_label}\n$\\mu$={custom_ret:.2%}, $\\sigma$={custom_vol:.2%}",
-            (custom_vol, custom_ret),
-            textcoords="offset points", xytext=(14, -22),
-            fontsize=9, color="purple", fontweight="bold",
-            bbox=dict(boxstyle="round,pad=0.3", facecolor="lavender", alpha=0.8),
+            markeredgecolor="black", markeredgewidth=0.5, linestyle="none",
+            label=f"{custom_label}  $\\mu$={custom_ret:.2%}, $\\sigma$={custom_vol:.2%}",
         )
 
     # --- Individual assets ---
+    texts = []
     for i, ticker in enumerate(tickers):
         ax.plot(
             asset_vols[i], asset_rets[i],
             marker="o", color="gray", markersize=6, zorder=4,
         )
-        ax.annotate(
-            ticker, (asset_vols[i], asset_rets[i]),
-            textcoords="offset points", xytext=(6, 4),
+        texts.append(ax.text(
+            asset_vols[i], asset_rets[i], ticker,
             fontsize=8, color="dimgray",
-        )
+        ))
 
     # --- Labels and formatting ---
     ax.set_xlabel("Standard Deviation ($\\sigma$)", fontsize=12)
@@ -198,20 +189,33 @@ def plot_tangency_portfolio(
     ax.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.0%}"))
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:.0%}"))
 
-    ax.set_xlim(left=-0.01)
-    ax.legend(loc="lower right", fontsize=9)
+    ax.set_xlim(-0.01, max_vol)
+    ax.set_ylim(y_min, y_max)
     ax.grid(True, alpha=0.3)
 
-    # Add Sharpe ratio annotation
-    ax.text(
-        0.02, 0.98,
-        f"Sharpe Ratio = {sharpe_ratio:.4f}",
-        transform=ax.transAxes, fontsize=9,
-        verticalalignment="top",
-        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+    # Sharpe ratio as a legend entry with no marker
+    ax.plot([], [], " ", label=f"Sharpe Ratio = {sharpe_ratio:.4f}")
+
+    # Move the portfolio points (P, T, V) to the bottom of the legend
+    handles, labels = ax.get_legend_handles_labels()
+    points = [custom_label, "T (tangency)", "V (min variance)"]
+
+    def point_rank(label):
+        return next((i for i, p in enumerate(points) if label.startswith(p)), -1)
+
+    order = sorted(range(len(labels)), key=lambda i: point_rank(labels[i]))
+    ax.legend(
+        [handles[i] for i in order], [labels[i] for i in order],
+        loc="upper left", bbox_to_anchor=(1.02, 1), borderaxespad=0, fontsize=9,
     )
 
     plt.tight_layout()
+
+    # Spread overlapping ticker labels, keeping a leader line to each point
+    adjust_text(
+        texts, x=asset_vols, y=asset_rets, ax=ax,
+        arrowprops=dict(arrowstyle="-", color="gray", lw=0.5),
+    )
 
     if output_file:
         fig.savefig(output_file, dpi=150, bbox_inches="tight")
