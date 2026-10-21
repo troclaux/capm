@@ -177,7 +177,9 @@ def plot_tangency_portfolio(
         )
         texts.append(ax.text(
             asset_vols[i], asset_rets[i], ticker,
-            fontsize=8, color="dimgray",
+            fontsize=8, color="dimgray", zorder=7,
+            bbox=dict(boxstyle="round,pad=0.15", facecolor="white",
+                      edgecolor="none", alpha=0.8),
         ))
 
     # --- Labels and formatting ---
@@ -214,6 +216,8 @@ def plot_tangency_portfolio(
     # Spread overlapping ticker labels, keeping a leader line to each point
     adjust_text(
         texts, x=asset_vols, y=asset_rets, ax=ax,
+        expand=(1.5, 2.0), force_text=(0.6, 1.0), force_static=(0.4, 0.6),
+        max_move=(30, 30), min_arrow_len=0,
         arrowprops=dict(arrowstyle="-", color="gray", lw=0.5),
     )
 
